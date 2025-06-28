@@ -16,6 +16,9 @@ struct ContentView: View {
         "03_BLE広告": AnyView(BLEAdvertisingSampleView()),
         "04_BLEによる通信サンプル": AnyView(BLECommunicationDemo()),
         "05_ジャイロ機能のサンプル": AnyView(ResizableFloatingGyroPIPView()),
+        "06_カメラ画像処理のサンプル": AnyView(CameraSampleMainView()),
+        "07_カメラ画像処理のサンプル2": AnyView(CameraInputTestView()),
+        "08_iSpeedのUIクローン": AnyView(iSpeedCloneView())
     ]
     
     // ソート済みのキー一覧
