@@ -8,6 +8,8 @@ struct GyroSampleView: View {
 
     /// 親ビューから渡される「現在のフレームサイズ」
     let containerSize: CGFloat
+    /// UI の向き変化に合わせて挙動を切り替えるフラグ
+    let enableUIRotation: Bool
 
     var body: some View {
         Text("重力で回転しちゃいます")
@@ -21,29 +23,27 @@ struct GyroSampleView: View {
     private func startGravityUpdates() {
         guard motionManager.isDeviceMotionAvailable else { return }
         motionManager.deviceMotionUpdateInterval = 1/60
-        // Z垂直基準の参照フレーム
         motionManager.startDeviceMotionUpdates(using: .xArbitraryZVertical, to: .main) { motion, _ in
             guard let g = motion?.gravity else { return }
-            // 画面の向きを取得
+            let gx = g.x, gy = g.y
             let orientation = UIDevice.current.orientation
-            // 向きに応じて重力ベクトルをスクリーン座標系に回転
-            let gx = g.x
-            let gy = g.y
-            var adjustedAngle: Double = 0
-            switch orientation {
-            case .landscapeLeft:
-                // 画面が左向きランドスケープ
-                adjustedAngle = atan2(-gy, -gx)
-            case .landscapeRight:
-                // 画面が右向きランドスケープ
-                adjustedAngle = atan2(gy, gx)
-            case .portraitUpsideDown:
-                // 画面が上下逆
-                adjustedAngle = atan2(-gx, gy)
-            default:
-                // 通常のポートレート（その他含む）
+            let adjustedAngle: Double
+
+            if enableUIRotation {
+                switch orientation {
+                case .landscapeLeft:
+                    adjustedAngle = atan2(-gy, -gx)
+                case .landscapeRight:
+                    adjustedAngle = atan2(gy, gx)
+                case .portraitUpsideDown:
+                    adjustedAngle = atan2(-gx, gy)
+                default:
+                    adjustedAngle = atan2(gx, -gy)
+                }
+            } else {
                 adjustedAngle = atan2(gx, -gy)
             }
+
             DispatchQueue.main.async {
                 self.angle = adjustedAngle
             }
@@ -65,54 +65,68 @@ struct ResizableFloatingGyroPIPView: View {
     // 初期配置完了フラグ
     @State private var initialPositionSet = false
 
+    let enableUIRotation: Bool
+    init(enableUIRotation: Bool = true) {
+        self.enableUIRotation = enableUIRotation
+    }
+
     var body: some View {
         GeometryReader { geo in
             let maxSide = min(geo.size.width, geo.size.height)
-            let currentSize = boxSize * scale
-            let rawX = position.width + dragOffset.width
-            let rawY = position.height + dragOffset.height
-            let clampedX = min(max(rawX, 0), geo.size.width - currentSize)
-            let clampedY = min(max(rawY, 0), geo.size.height - currentSize)
 
-            GyroSampleView(containerSize: currentSize)
+            GyroSampleView(containerSize: boxSize, enableUIRotation: enableUIRotation)
                 .padding(12)
-                .frame(width: currentSize, height: currentSize)
+                .frame(width: boxSize, height: boxSize)
                 .background(.ultraThinMaterial)
                 .cornerRadius(12)
                 .shadow(radius: 5)
-                .offset(x: clampedX, y: clampedY)
+                // ここで中心を基点にスケール
+                .scaleEffect(scale, anchor: .center)
+                // ドラッグ用オフセットを適用
+                .offset(x: position.width + dragOffset.width,
+                        y: position.height + dragOffset.height)
                 .gesture(
+                    // ドラッグとピンチを同時に扱う
                     DragGesture()
                         .updating($dragOffset) { value, state, _ in
                             state = value.translation
                         }
-                        .onEnded { _ in
-                            position = CGSize(width: clampedX, height: clampedY)
+                        .onEnded { value in
+                            // ドラッグ終了時に位置を確定＆画面内にクランプ
+                            position.width += value.translation.width
+                            position.height += value.translation.height
+                            let maxX = geo.size.width - boxSize
+                            let maxY = geo.size.height - boxSize
+                            position.width = min(max(position.width, 0), maxX)
+                            position.height = min(max(position.height, 0), maxY)
                         }
-                        .simultaneously(with: MagnificationGesture()
-                            .onChanged { v in
-                                scale = v
-                            }
-                            .onEnded { v in
-                                var newSize = boxSize * v
-                                let maxAllowed = min(400, maxSide)
-                                newSize = min(max(newSize, 100), maxAllowed)
-                                boxSize = newSize
-                                scale = 1.0
-                                let maxX = geo.size.width - boxSize
-                                let maxY = geo.size.height - boxSize
-                                let clampedPosX = min(max(position.width, 0), maxX)
-                                let clampedPosY = min(max(position.height, 0), maxY)
-                                position = CGSize(width: clampedPosX, height: clampedPosY)
-                            }
+                        .simultaneously(with:
+                            MagnificationGesture()
+                                .onChanged { value in
+                                    // 一時スケール
+                                    scale = value
+                                }
+                                .onEnded { value in
+                                    // ピンチ終了時に基礎サイズを更新＆スケールリセット
+                                    let newSize = min(max(boxSize * value, 100),
+                                                      min(400, maxSide))
+                                    boxSize = newSize
+                                    scale = 1.0
+                                    // サイズ更新後もフレームがはみ出さないようにクランプ
+                                    let maxX = geo.size.width - boxSize
+                                    let maxY = geo.size.height - boxSize
+                                    position.width = min(max(position.width, 0), maxX)
+                                    position.height = min(max(position.height, 0), maxY)
+                                }
                         )
                 )
                 .onAppear {
-                    // 初回のみ中心へ配置
+                    // 初回のみ画面中央に配置
                     if !initialPositionSet {
-                        let centerX = (geo.size.width - boxSize) / 2
-                        let centerY = (geo.size.height - boxSize) / 2
-                        position = CGSize(width: centerX, height: centerY)
+                        position = CGSize(
+                            width: (geo.size.width - boxSize) / 2,
+                            height: (geo.size.height - boxSize) / 2
+                        )
                         initialPositionSet = true
                     }
                 }
@@ -121,6 +135,8 @@ struct ResizableFloatingGyroPIPView: View {
     }
 }
 
-#Preview {
-    ResizableFloatingGyroPIPView()
+struct ResizableFloatingGyroPIPView_Previews: PreviewProvider {
+    static var previews: some View {
+        ResizableFloatingGyroPIPView()
+    }
 }

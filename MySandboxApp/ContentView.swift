@@ -18,7 +18,8 @@ struct ContentView: View {
         "05_ジャイロ機能のサンプル": AnyView(ResizableFloatingGyroPIPView()),
         "06_カメラ画像処理のサンプル": AnyView(CameraSampleMainView()),
         "07_カメラ画像処理のサンプル2": AnyView(CameraInputTestView()),
-        "08_iSpeedのUIクローン": AnyView(iSpeedCloneView())
+        "08_iSpeedのUIクローン": AnyView(iSpeedCloneView()),
+        "09_UI練習用": AnyView(UIPracticeView())
     ]
     
     // ソート済みのキー一覧
