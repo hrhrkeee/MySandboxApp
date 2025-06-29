@@ -59,6 +59,14 @@ struct UIPracticeView: View {
             } label: {
                 Text("カメラの映像を配置")
             }
+            
+            NavigationLink {
+                ZStack {
+                    ListRefreshableView()
+                }
+            } label: {
+                Text("更新可能なリスト")
+            }
         }
         
     }

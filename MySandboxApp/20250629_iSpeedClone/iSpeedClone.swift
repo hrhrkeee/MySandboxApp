@@ -23,6 +23,7 @@ struct MarketItem: Identifiable {
 // MARK: - カードビュー（変更なし）
 struct MarketCard: View {
     let item: MarketItem
+    @State var isFavorite = false
 
     var body: some View {
         NavigationLink(destination: CardDetailView(item: item)) {
@@ -48,13 +49,23 @@ struct MarketCard: View {
                     Button(action: {
                         // ボタンタップ時の処理
                         print("丸アイコンボタンがタップされました [\(item.title)]")
+                        isFavorite.toggle()
                     }) {
-                        Image(systemName: "heart.fill")        // SF Symbols のアイコン
-                            .font(.headline)                     // アイコンサイズ
-                            .foregroundColor(.white)           // アイコン色
-                            .padding(8)                       // タップ領域を広げる
-                            .background(Color.gray)             // 背景色を設定
-                            .clipShape(Circle())               // 丸くクリッピング
+                        if isFavorite {
+                            Image(systemName: "heart.fill")        // SF Symbols のアイコン
+                                .font(.headline)                     // アイコンサイズ
+                                .foregroundColor(.black)           // アイコン色
+                                .padding(8)                       // タップ領域を広げる
+                                .background(.pink)             // 背景色を設定
+                                .clipShape(Circle())
+                        } else {
+                            Image(systemName: "heart.fill")        // SF Symbols のアイコン
+                                .font(.headline)                     // アイコンサイズ
+                                .foregroundColor(.white)           // アイコン色
+                                .padding(8)                       // タップ領域を広げる
+                                .background(Color.gray)             // 背景色を設定
+                                .clipShape(Circle())
+                        }
                     }
                     .buttonStyle(DefaultButtonStyle())            // 押下時のデフォルトエフェクトを抑制
                     
